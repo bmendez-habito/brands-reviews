@@ -1,0 +1,20 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ml-reviews-db
+    environment:
+      - POSTGRES_DB=mlreviews
+      - POSTGRES_USER=mluser
+      - POSTGRES_PASSWORD=mlpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+    driver: local
+
+
