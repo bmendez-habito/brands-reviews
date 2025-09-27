@@ -6,11 +6,12 @@ Extractor y API para reviews de MercadoLibre con base de datos Postgres (Docker)
 ### Estructura
 - `src/api/`: cliente ML y rate limiter
 - `src/models/`: modelos `Product` y `Review`, `database.py`
-- `src/services/`: `scrape_final.py` (scraper principal), `review_scraper.py` (cache y fallback), `batch_fetch.py` (job)
+- `src/services/`: `scrape_final.py` (scraper principal), `review_scraper.py` (cache y fallback), `batch_fetch.py` (job), `sentiment_analyzer.py` (análisis de sentimiento), `extract_product_simple.py` (extractor de productos)
 - `src/web/app.py`: FastAPI con endpoints
 
 ### Requisitos
 - Python 3.11+ (o Docker)
+- Playwright (para extractor de productos): `pip install playwright && playwright install`
 
 ### Setup local (venv)
 ```bash
@@ -50,6 +51,21 @@ source venv/bin/activate
 python -m src.services.scrape_final --url "https://.../p/MLA25265609#reviews" --url "https://.../p/MLA00000001#reviews" --count 150
 # o usando archivo
 python -m src.services.scrape_final --urls-file urls.txt --count 150
+```
+
+### Extractor de productos (Playwright)
+```bash
+source venv/bin/activate
+python -m src.services.extract_product_simple                       # Lee desde urls.txt
+python -m src.services.extract_product_simple "https://.../p/MLA25265609"  # URL específica
+```
+
+### Analizador de sentimiento
+```bash
+source venv/bin/activate
+python -m src.services.sentiment_analyzer                           # Todas las reviews sin análisis
+python -m src.services.sentiment_analyzer --from-date 2024-01-01   # Desde fecha específica
+python -m src.services.sentiment_analyzer --dry-run                 # Ver qué se procesaría
 ```
 
 ### Docker (Postgres + scraper job opcional)

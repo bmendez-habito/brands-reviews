@@ -23,5 +23,8 @@ class Product(Base):
     marca: Mapped[str] = mapped_column(String(100), default="")
     modelo: Mapped[str] = mapped_column(String(100), default="")
     caracteristicas: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    
+    # Información adicional de MercadoLibre
+    ml_additional_info: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
 

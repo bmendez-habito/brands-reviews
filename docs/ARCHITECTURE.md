@@ -16,6 +16,12 @@ Este documento resume las piezas del sistema y cómo interactúan. Incluye diagr
 - Scraper principal por URL(s) (API noindex)
   - Archivo: `src/services/scrape_final.py` (CLI principal)
   - Extrae `item_id`, `site_id` y `title` desde la URL. Usa API noindex para obtener reviews; guarda producto + reviews en la misma DB.
+- Extractor de productos (Playwright)
+  - Archivo: `src/services/extract_product_simple.py` (CLI independiente)
+  - Extrae información detallada de productos (marca, modelo, características) usando Playwright. Solo guarda productos en la DB.
+- Analizador de sentimiento
+  - Archivo: `src/services/sentiment_analyzer.py` (CLI independiente)
+  - Completa los campos `sentiment_score` y `sentiment_label` para reviews usando TextBlob con mejoras para español.
 - Base de Datos
   - Archivos: `src/models/product.py`, `src/models/review.py`, `src/models/database.py`
   - Modelos canónicos para todo el sistema.
@@ -78,6 +84,54 @@ Notas:
 
 ---
 
+## Flujo: Extractor de productos (Playwright)
+
+```mermaid
+flowchart TD
+  A[Operador] -->|python -m src.services.extract_product_simple\n--urls-file urls.txt| B[Extractor de Productos]
+  A -->|python -m src.services.extract_product_simple URL| B
+  B --> C[Playwright: Navegar a URL]
+  C --> D[Extraer: ID, título, precio, marca, modelo]
+  D --> E[Extraer: características (especificaciones)]
+  E --> F[Crear ml_additional_info JSONB]
+  F --> G[DB: Guardar Product]
+  G --> H{¿Más URLs?}
+  H -->|Sí| C
+  H -->|No| I[Completado]
+```
+
+Notas:
+- Usa Playwright para extraer datos de la página web.
+- Solo extrae información de productos, no reviews.
+- Guarda directamente en la base de datos PostgreSQL.
+- Maneja URLs con fragmentos automáticamente.
+
+---
+
+## Flujo: Analizador de sentimiento
+
+```mermaid
+flowchart TD
+  A[Operador] -->|python -m src.services.sentiment_analyzer\n--from-date 2024-01-01| B[Analizador de Sentimiento]
+  A -->|python -m src.services.sentiment_analyzer --dry-run| B
+  B --> C[Obtener reviews sin análisis]
+  C --> D[Filtrar por fecha opcional]
+  D --> E[Procesar en batch]
+  E --> F[Analizar con TextBlob + palabras clave español]
+  F --> G[Actualizar sentiment_score y sentiment_label]
+  G --> H{¿Más reviews?}
+  H -->|Sí| E
+  H -->|No| I[Mostrar estadísticas finales]
+```
+
+Notas:
+- Procesa reviews que no tienen análisis de sentimiento completo.
+- Combina TextBlob con diccionario de palabras en español para mejor precisión.
+- Procesamiento en batch con commits periódicos para eficiencia.
+- Modo dry-run para ver qué se procesaría sin hacer cambios.
+
+---
+
 ## Modelo de Datos (ER)
 
 ```mermaid
@@ -94,6 +148,7 @@ erDiagram
     string marca
     string modelo
     jsonb caracteristicas
+    jsonb ml_additional_info
   }
   REVIEW {
     string id PK
@@ -122,6 +177,8 @@ erDiagram
 - API Web: consumir datos cacheados; refrescar puntual con `refresh=true`.
 - Batch (IDs): backfill/ingesta masiva cuando conocés los `item_id`.
 - Scraper URL: cuando tenés URLs (y/o no tenés token) y querés poblar la DB con el mismo modelo. Usa API noindex.
+- Extractor de productos: cuando necesitás información detallada de productos (marca, modelo, características) usando scraping web.
+- Analizador de sentimiento: cuando tenés reviews sin análisis de sentimiento y querés completar los campos `sentiment_score` y `sentiment_label`.
 
 ---
 
@@ -140,6 +197,17 @@ erDiagram
   ```bash
   python -m src.services.scrape_final --url "https://.../p/MLA25265609#reviews" --count 150
   python -m src.services.scrape_final --urls-file urls.txt --count 150
+  ```
+- Extractor de productos
+  ```bash
+  python -m src.services.extract_product_simple                       # Lee desde urls.txt
+  python -m src.services.extract_product_simple "https://.../p/MLA25265609"  # URL específica
+  ```
+- Analizador de sentimiento
+  ```bash
+  python -m src.services.sentiment_analyzer                           # Todas las reviews sin análisis
+  python -m src.services.sentiment_analyzer --from-date 2024-01-01   # Desde fecha específica
+  python -m src.services.sentiment_analyzer --dry-run                 # Ver qué se procesaría
   ```
 
 ---
