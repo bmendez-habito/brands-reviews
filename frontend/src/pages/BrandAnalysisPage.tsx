@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Product, Review, ReviewStats, LoadingState } from '../types';
+import type { Product, Review, LoadingState } from '../types';
 import { apiService } from '../services/api';
 import TimelineCharts from '../components/TimelineCharts';
 
@@ -173,9 +173,12 @@ const BrandAnalysisPage: React.FC = () => {
     setTimelineLoading(true);
     try {
       const productId = filterByProduct && selectedProduct ? selectedProduct.id : undefined;
+      const marca = !productId ? selectedBrandData.brand : undefined;
+      
       const response = await apiService.getReviewsTimeline({
         product_id: productId,
-        days: 30
+        marca: marca,
+        days: 365
       });
       setTimelineData(response.timeline);
     } catch (error) {
@@ -200,16 +203,19 @@ const BrandAnalysisPage: React.FC = () => {
         averageRating,
         totalProducts,
         averagePrice,
-        reviewStats: apiService.getSentimentStats(productReviews)
+        // reviewStats calculados en tiempo real
       };
     } else {
-      // Brand-wide stats
+      // Brand-wide stats - calcular total real de reviews
+      const ratingDistribution = selectedBrandData?.ratingDistribution || {};
+      const totalReviewsReal = Object.values(ratingDistribution).reduce((sum, count) => sum + (count as number), 0);
+      
       return {
-        totalReviews: selectedBrandData?.totalReviews || 0,
+        totalReviews: totalReviewsReal || selectedBrandData?.totalReviews || 0,
         averageRating: selectedBrandData?.averageRating || 0,
         totalProducts: selectedBrandData?.totalProducts || 0,
         averagePrice: selectedBrandData?.averagePrice || 0,
-        reviewStats: selectedBrandData?.reviewStats || null
+        // reviewStats calculados en tiempo real
       };
     }
   };
@@ -450,18 +456,21 @@ const BrandAnalysisPage: React.FC = () => {
               <h4 style={{ margin: '0 0 12px 0', color: '#333' }}>Distribución de Ratings</h4>
               <div style={{ display: 'grid', gap: '8px' }}>
                 {(() => {
-                  const stats = getCurrentStats();
-                  const ratingDistribution = stats.reviewStats?.rating_distribution || {};
+                  const ratingDistribution = selectedBrandData?.ratingDistribution || {};
+                  // Calcular el total real de reviews desde la distribución
+                  const totalReviewsFromDistribution = Object.values(ratingDistribution).reduce((sum, count) => sum + (count as number), 0);
+                  
                   return Object.entries(ratingDistribution).map(([rating, count]) => {
+                    const countNum = count as number;
                     const ratingNum = parseInt(rating.split('_')[0]);
-                    const percentage = stats.totalReviews > 0 
-                      ? (count / stats.totalReviews) * 100 
+                    const percentage = totalReviewsFromDistribution > 0 
+                      ? (countNum / totalReviewsFromDistribution) * 100 
                       : 0;
                   
                   return (
                     <div key={rating} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ minWidth: '80px', fontSize: '14px' }}>
-                        {renderStars(ratingNum)} ({count})
+                        {renderStars(ratingNum)} ({countNum})
                       </span>
                       <div style={{
                         flex: 1,
@@ -492,11 +501,14 @@ const BrandAnalysisPage: React.FC = () => {
               <h4 style={{ margin: '0 0 12px 0', color: '#333' }}>Análisis de Sentimiento</h4>
               <div style={{ display: 'grid', gap: '12px' }}>
                 {(() => {
-                  const stats = getCurrentStats();
-                  const sentimentDistribution = stats.reviewStats?.sentiment_distribution || {};
+                  const sentimentDistribution = selectedBrandData?.sentimentDistribution || {};
+                  // Calcular el total real de reviews desde la distribución de sentimiento
+                  const totalReviewsFromSentiment = Object.values(sentimentDistribution).reduce((sum, count) => sum + (count as number), 0);
+                  
                   return Object.entries(sentimentDistribution).map(([sentiment, count]) => {
-                    const percentage = stats.totalReviews > 0 
-                      ? (count / stats.totalReviews) * 100 
+                    const countNum = count as number;
+                    const percentage = totalReviewsFromSentiment > 0 
+                      ? (countNum / totalReviewsFromSentiment) * 100 
                       : 0;
                   
                   return (
@@ -532,7 +544,7 @@ const BrandAnalysisPage: React.FC = () => {
                         }} />
                       </div>
                       <span style={{ minWidth: '60px', fontSize: '12px', textAlign: 'right' }}>
-                        {count} ({percentage.toFixed(1)}%)
+                        {countNum} ({percentage.toFixed(1)}%)
                       </span>
                     </div>
                   );

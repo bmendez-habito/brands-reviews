@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Product, Review, ReviewStats, LoadingState } from '../types';
+import type { Product, Review, LoadingState } from '../types';
 import { apiService } from '../services/api';
 import TimelineCharts from '../components/TimelineCharts';
 
@@ -213,7 +213,7 @@ const BrandComparisonPage: React.FC = () => {
       const response = await apiService.getReviewsTimeline({
         product_id: productId,
         marca: marca,
-        days: 30
+        days: 365
       });
       
       if (side === 'left') {

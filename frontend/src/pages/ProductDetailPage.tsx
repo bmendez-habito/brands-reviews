@@ -41,15 +41,14 @@ const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ productId }) => {
     try {
       setLoading({ isLoading: true, error: null });
       
-      const reviews = await apiService.getProductReviews(productId, { 
-        limit: 100, 
-        refresh: true 
+      const reviewsResponse = await apiService.getProductReviews(productId, { 
+        limit: 100
       });
       
-      const updatedData = { ...productData, reviews, total_reviews: reviews.length };
+      const updatedData = { ...productData, reviews: reviewsResponse.reviews, total_reviews: reviewsResponse.count };
       setProductData(updatedData);
       
-      const stats = apiService.getSentimentStats(reviews);
+      const stats = apiService.getSentimentStats(reviewsResponse.reviews);
       setSentimentStats(stats);
     } catch (error) {
       setLoading({ isLoading: false, error: 'Error al actualizar reviews' });
@@ -310,7 +309,6 @@ const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ productId }) => {
               <ReviewCard
                 key={review.id}
                 review={review}
-                showProductInfo={false}
               />
             ))}
           </div>
