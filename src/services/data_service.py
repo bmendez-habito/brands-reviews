@@ -238,10 +238,11 @@ class DataService:
             "sentiment_distribution": sentiment_dist
         }
 
-    def get_reviews_timeline(self, product_id: Optional[str] = None, days: int = 30) -> List[Dict[str, Any]]:
+    def get_reviews_timeline(self, product_id: Optional[str] = None, days: int = 30, marca: Optional[str] = None) -> List[Dict[str, Any]]:
         """Obtiene datos temporales de reviews para gráficos de evolución"""
         from datetime import datetime, timedelta
         from sqlalchemy import func, extract
+        from src.models.product import Product
         
         # Calcular fecha de inicio
         start_date = datetime.utcnow() - timedelta(days=days)
@@ -262,6 +263,10 @@ class DataService:
         # Filtrar por producto si se especifica
         if product_id:
             query = query.filter(Review.product_id == product_id)
+        
+        # Filtrar por marca si se especifica
+        if marca:
+            query = query.join(Product, Review.product_id == Product.id).filter(Product.marca == marca)
         
         # Agrupar por fecha y ordenar
         results = query.group_by(func.date(Review.date_created)).order_by('date').all()

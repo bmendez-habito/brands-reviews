@@ -199,6 +199,7 @@ export const apiService = {
   // Obtener datos temporales de reviews
   async getReviewsTimeline(options: {
     product_id?: string;
+    marca?: string;
     days?: number;
   } = {}): Promise<{
     timeline: Array<{
@@ -211,9 +212,11 @@ export const apiService = {
     }>;
     days: number;
     product_id?: string;
+    marca?: string;
   }> {
     const params = new URLSearchParams();
     if (options.product_id) params.append('product_id', options.product_id);
+    if (options.marca) params.append('marca', options.marca);
     if (options.days) params.append('days', options.days.toString());
 
     const response = await api.get(`/api/reviews/timeline?${params}`);

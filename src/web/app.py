@@ -205,17 +205,19 @@ async def get_reviews_stats():
 @app.get("/api/reviews/timeline")
 async def get_reviews_timeline(
     product_id: Optional[str] = Query(None),
+    marca: Optional[str] = Query(None),
     days: int = Query(30, ge=1, le=365)
 ):
     """Obtiene datos temporales de reviews para gráficos de evolución"""
     try:
         with get_session() as session:
             service = DataService(session)
-            timeline = service.get_reviews_timeline(product_id, days)
+            timeline = service.get_reviews_timeline(product_id, days, marca)
             return {
                 "timeline": timeline,
                 "days": days,
-                "product_id": product_id
+                "product_id": product_id,
+                "marca": marca
             }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

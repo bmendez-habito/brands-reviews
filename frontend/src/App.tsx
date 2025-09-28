@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useParams, Link, useLocation } 
 import ProductDetailPage from './pages/ProductDetailPage';
 import ReviewsPage from './pages/ReviewsPage';
 import BrandAnalysisPage from './pages/BrandAnalysisPage';
+import BrandComparisonPage from './pages/BrandComparisonPage';
 import { apiService } from './services/api';
 import './App.css';
 
@@ -132,6 +133,7 @@ const App: React.FC = () => {
             gap: '32px'
           }}>
             <NavigationLink to="/" label="Marcas" />
+            <NavigationLink to="/comparison" label="Comparación" />
             <NavigationLink to="/reviews" label="Reviews" />
           </div>
         </nav>
@@ -143,6 +145,7 @@ const App: React.FC = () => {
         }}>
           <Routes>
             <Route path="/" element={<BrandAnalysisPage />} />
+            <Route path="/comparison" element={<BrandComparisonPage />} />
             <Route path="/reviews" element={<ReviewsPage />} />
             <Route path="/product/:productId" element={<ProductDetailWrapper />} />
           </Routes>
