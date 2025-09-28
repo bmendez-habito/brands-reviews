@@ -38,6 +38,12 @@ def get_db_session():
     return SessionLocal()
 
 
+def check_product_exists(product_id, session):
+    """Verifica si un producto ya existe en la base de datos"""
+    existing = session.query(Product).filter(Product.id == product_id).first()
+    return existing is not None
+
+
 def save_product_to_db(product_data, session):
     """Guarda el producto en la base de datos"""
     try:
@@ -79,6 +85,12 @@ def save_product_to_db(product_data, session):
         session.rollback()
         print(f"❌ Error guardando en DB: {e}")
         return False
+
+
+def extract_product_id_from_url(url):
+    """Extrae el ID del producto desde una URL de MercadoLibre"""
+    id_match = re.search(r'/p/([A-Z0-9]+)', url)
+    return id_match.group(1) if id_match else None
 
 
 def extract_product_info(url):
@@ -311,12 +323,31 @@ def load_urls_from_file(filename="urls.txt"):
     return urls
 
 
-def process_single_url(url):
+def process_single_url(url, skip_existing=True):
     """Procesa una sola URL"""
     print(f"\n🔍 PROCESANDO URL:")
     print("-" * 40)
     print(f"URL: {url}")
     
+    # Extraer ID del producto desde la URL
+    product_id = extract_product_id_from_url(url)
+    if not product_id:
+        print(f"❌ No se pudo extraer ID del producto de la URL")
+        return {"success": False, "error": "ID no válido"}
+    
+    print(f"🆔 ID extraído: {product_id}")
+    
+    # Verificar si ya existe en la base de datos
+    if skip_existing:
+        session = get_db_session()
+        try:
+            if check_product_exists(product_id, session):
+                print(f"⚠️  Producto {product_id} ya existe en la base de datos. Saltando...")
+                return {"success": True, "skipped": True, "id": product_id}
+        finally:
+            session.close()
+    
+    # Extraer información del producto
     product_info = extract_product_info(url)
     
     print(f"\n📦 RESULTADO:")
@@ -344,6 +375,17 @@ def process_single_url(url):
 def main():
     """Función principal"""
     import sys
+    import argparse
+    
+    # Configurar parser de argumentos
+    parser = argparse.ArgumentParser(description='Extractor Simple de Productos MercadoLibre')
+    parser.add_argument('url', nargs='?', help='URL del producto a procesar')
+    parser.add_argument('--force', '-f', action='store_true', 
+                       help='Forzar reprocesamiento aunque el producto ya exista')
+    parser.add_argument('--skip-existing', action='store_true', default=True,
+                       help='Saltar productos que ya existen (por defecto)')
+    
+    args = parser.parse_args()
     
     # Cargar variables de entorno
     load_env()
@@ -352,13 +394,13 @@ def main():
     print("=" * 60)
     
     # Verificar si se pasó una URL como parámetro
-    if len(sys.argv) > 1:
+    if args.url:
         # Modo: URL como parámetro
-        url = sys.argv[1]
         print(f"🔗 Modo: URL como parámetro")
-        print(f"URL: {url}")
+        print(f"URL: {args.url}")
         
-        product_info = process_single_url(url)
+        skip_existing = not args.force and args.skip_existing
+        product_info = process_single_url(args.url, skip_existing=skip_existing)
         
     else:
         # Modo: leer desde urls.txt
@@ -369,8 +411,9 @@ def main():
         if not urls:
             print("❌ No se encontraron URLs para procesar")
             print("\n💡 Uso:")
-            print("  python extract_product_simple.py                    # Lee desde urls.txt")
-            print("  python extract_product_simple.py <URL>              # Procesa una URL específica")
+            print("  python -m src.services.extract_product_simple                    # Lee desde urls.txt")
+            print("  python -m src.services.extract_product_simple <URL>              # Procesa una URL específica")
+            print("  python -m src.services.extract_product_simple <URL> --force      # Forza reprocesamiento")
             return
         
         print(f"🔄 Procesando {len(urls)} URLs...")
@@ -382,32 +425,18 @@ def main():
             print(f"\n🔍 PRODUCTO {i}/{len(urls)}:")
             print("-" * 40)
             
-            product_info = extract_product_info(url)
+            product_info = process_single_url(url, skip_existing=True)
             
-            print(f"\n📦 RESULTADO:")
-            print(f"✅ Éxito: {product_info['success']}")
-            print(f"🆔 ID: {product_info['id']}")
-            print(f"📝 Título: {product_info['title'][:80]}...")
-            print(f"💰 Precio: ${product_info['price']:,.2f}")
-            print(f"🏷️ Marca: {product_info['marca']}")
-            print(f"🔧 Modelo: {product_info['modelo']}")
-            
-            if product_info['error']:
+            if product_info.get('skipped'):
+                print(f"⏭️  Saltado (ya existe)")
+                successful += 1  # Contamos como exitoso porque ya existe
+            elif product_info['error']:
                 print(f"❌ Error: {product_info['error']}")
                 failed += 1
+            elif product_info.get('success'):
+                successful += 1
             else:
-                # Guardar en base de datos
-                if product_info['id']:
-                    session = get_db_session()
-                    try:
-                        if save_product_to_db(product_info, session):
-                            successful += 1
-                        else:
-                            failed += 1
-                    finally:
-                        session.close()
-                else:
-                    failed += 1
+                failed += 1
             
             print()
         

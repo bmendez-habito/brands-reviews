@@ -8,9 +8,11 @@ Extractor y API para reviews de MercadoLibre con base de datos Postgres (Docker)
 - `src/models/`: modelos `Product` y `Review`, `database.py`
 - `src/services/`: `scrape_final.py` (scraper principal), `review_scraper.py` (cache y fallback), `batch_fetch.py` (job), `sentiment_analyzer.py` (análisis de sentimiento), `extract_product_simple.py` (extractor de productos)
 - `src/web/app.py`: FastAPI con endpoints
+- `frontend/`: Aplicación React con TypeScript
 
 ### Requisitos
 - Python 3.11+ (o Docker)
+- Node.js 18+ (para frontend)
 - Playwright (para extractor de productos): `pip install playwright && playwright install`
 
 ### Setup local (venv)
@@ -66,6 +68,14 @@ source venv/bin/activate
 python -m src.services.sentiment_analyzer                           # Todas las reviews sin análisis
 python -m src.services.sentiment_analyzer --from-date 2024-01-01   # Desde fecha específica
 python -m src.services.sentiment_analyzer --dry-run                 # Ver qué se procesaría
+```
+
+### Frontend React
+```bash
+cd frontend
+npm install
+npm run dev
+# Abrir http://localhost:5173
 ```
 
 ### Docker (Postgres + scraper job opcional)
