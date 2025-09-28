@@ -237,6 +237,58 @@ class DataService:
             "rating_distribution": rating_dist,
             "sentiment_distribution": sentiment_dist
         }
+
+    def get_reviews_timeline(self, product_id: Optional[str] = None, days: int = 30) -> List[Dict[str, Any]]:
+        """Obtiene datos temporales de reviews para gráficos de evolución"""
+        from datetime import datetime, timedelta
+        from sqlalchemy import func, extract
+        
+        # Calcular fecha de inicio
+        start_date = datetime.utcnow() - timedelta(days=days)
+        
+        # Query base
+        from sqlalchemy import case
+        query = self.session.query(
+            func.date(Review.date_created).label('date'),
+            func.count(Review.id).label('total_reviews'),
+            func.avg(Review.rate).label('avg_rating'),
+            func.sum(case((Review.sentiment_label == 'positive', 1), else_=0)).label('positive_count'),
+            func.sum(case((Review.sentiment_label == 'negative', 1), else_=0)).label('negative_count'),
+            func.sum(case((Review.sentiment_label == 'neutral', 1), else_=0)).label('neutral_count')
+        ).filter(
+            Review.date_created >= start_date
+        )
+        
+        # Filtrar por producto si se especifica
+        if product_id:
+            query = query.filter(Review.product_id == product_id)
+        
+        # Agrupar por fecha y ordenar
+        results = query.group_by(func.date(Review.date_created)).order_by('date').all()
+        
+        # Procesar resultados
+        timeline_data = []
+        for result in results:
+            total = result.total_reviews or 0
+            positive = result.positive_count or 0
+            negative = result.negative_count or 0
+            neutral = result.neutral_count or 0
+            
+            # Calcular porcentajes de sentimiento
+            positive_pct = (positive / total * 100) if total > 0 else 0
+            negative_pct = (negative / total * 100) if total > 0 else 0
+            neutral_pct = (neutral / total * 100) if total > 0 else 0
+            
+            timeline_data.append({
+                "date": result.date.strftime('%Y-%m-%d'),
+                "total_reviews": total,
+                "avg_rating": float(result.avg_rating or 0),
+                "sentiment_positive": positive_pct,
+                "sentiment_negative": negative_pct,
+                "sentiment_neutral": neutral_pct
+            })
+        
+        return timeline_data
     
     def get_recent_reviews(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
@@ -288,7 +340,8 @@ class DataService:
             "api_review_id": review.api_review_id,
             "date_text": review.date_text,
             "source": review.source,
-            "media": review.media
+            "media": review.media,
+            "raw_json": review.raw_json
         }
 
 

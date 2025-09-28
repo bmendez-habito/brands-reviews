@@ -840,18 +840,31 @@ def run_for_item(item_id: str, count: int, site_id_hint, title_hint) -> None:
             if existing:
                 continue
                 
+            # Parsear fecha original de la API
+            original_date = None
+            if "date_created" in review_data and review_data["date_created"]:
+                try:
+                    # La API devuelve formato ISO: "2024-01-01T00:00:00Z"
+                    original_date = datetime.fromisoformat(review_data["date_created"].replace('Z', '+00:00'))
+                except Exception:
+                    original_date = datetime.utcnow()
+            else:
+                original_date = datetime.utcnow()
+            
             review = Review(
                 id=review_data["id"],
                 product_id=item_id,
                 rate=review_data["rate"],
                 title=review_data["title"],
                 content=review_data["content"],
-                date_created=datetime.utcnow(),
+                date_created=original_date,
                 reviewer_id=review_data["reviewer_id"],
                 likes=review_data["likes"],
                 dislikes=review_data["dislikes"],
                 sentiment_score=0.0,
                 sentiment_label="neutral",
+                date_text=review_data.get("date_created", ""),  # Guardar fecha original como texto
+                raw_json=review_data,  # Guardar datos originales completos
             )
             db.add(review)
             stored_count += 1

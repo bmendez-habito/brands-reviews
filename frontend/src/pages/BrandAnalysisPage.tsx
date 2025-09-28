@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Product, Review, ReviewStats, LoadingState } from '../types';
 import { apiService } from '../services/api';
+import TimelineCharts from '../components/TimelineCharts';
 
 interface BrandData {
   brand: string;
@@ -16,9 +17,13 @@ interface BrandData {
 const BrandAnalysisPage: React.FC = () => {
   const [brands, setBrands] = useState<BrandData[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>('');
+  const [selectedBrandData, setSelectedBrandData] = useState<BrandData | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productReviews, setProductReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState<LoadingState>({ isLoading: true, error: null });
+  const [filterByProduct, setFilterByProduct] = useState<boolean>(false);
+  const [timelineData, setTimelineData] = useState<any[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState<boolean>(false);
 
   useEffect(() => {
     loadBrandsData();
@@ -30,12 +35,37 @@ const BrandAnalysisPage: React.FC = () => {
     }
   }, [selectedProduct]);
 
+  useEffect(() => {
+    // Reset product selection when filter is disabled
+    if (!filterByProduct) {
+      setSelectedProduct(null);
+      setProductReviews([]);
+    }
+  }, [filterByProduct]);
+
+  useEffect(() => {
+    // Update selectedBrandData when selectedBrand or brands change
+    if (selectedBrand && brands.length > 0) {
+      const brandData = brands.find(b => b.brand === selectedBrand);
+      setSelectedBrandData(brandData || null);
+    } else {
+      setSelectedBrandData(null);
+    }
+  }, [selectedBrand, brands]);
+
+  useEffect(() => {
+    // Load timeline data when brand or product selection changes
+    if (selectedBrandData) {
+      loadTimelineData();
+    }
+  }, [selectedBrandData, filterByProduct, selectedProduct]);
+
   const loadBrandsData = async () => {
     try {
       setLoading({ isLoading: true, error: null });
       
-      // Obtener todos los productos (máximo 100 por endpoint)
-      const productsResponse = await apiService.getProducts({ limit: 100 });
+      // Obtener todos los productos (sin límite)
+      const productsResponse = await apiService.getProducts();
       const allProducts = productsResponse.products;
       
       // Agrupar por marca (filtrar marcas inválidas)
@@ -75,7 +105,7 @@ const BrandAnalysisPage: React.FC = () => {
         
         for (const product of products) {
           try {
-            const reviewsResponse = await apiService.getProductReviews(product.id, { limit: 100 });
+            const reviewsResponse = await apiService.getProductReviews(product.id); // Sin límite para traer todas las reviews
             const reviews = reviewsResponse.reviews;
             
             brandData.totalReviews += reviews.length;
@@ -129,11 +159,58 @@ const BrandAnalysisPage: React.FC = () => {
 
   const loadProductReviews = async (productId: string) => {
     try {
-      const reviewsResponse = await apiService.getProductReviews(productId, { limit: 1000 });
+      const reviewsResponse = await apiService.getProductReviews(productId); // Sin límite para traer todas las reviews
       setProductReviews(reviewsResponse.reviews);
     } catch (error) {
       console.error('Error loading product reviews:', error);
       setProductReviews([]);
+    }
+  };
+
+  const loadTimelineData = async () => {
+    if (!selectedBrandData) return;
+    
+    setTimelineLoading(true);
+    try {
+      const productId = filterByProduct && selectedProduct ? selectedProduct.id : undefined;
+      const response = await apiService.getReviewsTimeline({
+        product_id: productId,
+        days: 30
+      });
+      setTimelineData(response.timeline);
+    } catch (error) {
+      console.error('Error loading timeline data:', error);
+      setTimelineData([]);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
+  // Helper function to get current stats (brand or product specific)
+  const getCurrentStats = () => {
+    if (filterByProduct && selectedProduct && productReviews.length > 0) {
+      // Product-specific stats
+      const totalReviews = productReviews.length;
+      const averageRating = productReviews.reduce((sum, r) => sum + r.rate, 0) / totalReviews;
+      const totalProducts = 1;
+      const averagePrice = selectedProduct.price;
+      
+      return {
+        totalReviews,
+        averageRating,
+        totalProducts,
+        averagePrice,
+        reviewStats: apiService.getSentimentStats(productReviews)
+      };
+    } else {
+      // Brand-wide stats
+      return {
+        totalReviews: selectedBrandData?.totalReviews || 0,
+        averageRating: selectedBrandData?.averageRating || 0,
+        totalProducts: selectedBrandData?.totalProducts || 0,
+        averagePrice: selectedBrandData?.averagePrice || 0,
+        reviewStats: selectedBrandData?.reviewStats || null
+      };
     }
   };
 
@@ -169,8 +246,6 @@ const BrandAnalysisPage: React.FC = () => {
     }
     return stars;
   };
-
-  const selectedBrandData = brands.find(b => b.brand === selectedBrand);
 
   if (loading.isLoading) {
     return (
@@ -218,7 +293,11 @@ const BrandAnalysisPage: React.FC = () => {
         
         <select
           value={selectedBrand}
-          onChange={(e) => setSelectedBrand(e.target.value)}
+          onChange={(e) => {
+            setSelectedBrand(e.target.value);
+            setFilterByProduct(false); // Reset product filter when brand changes
+            setSelectedProduct(null);
+          }}
           style={{
             padding: '12px',
             fontSize: '16px',
@@ -242,6 +321,64 @@ const BrandAnalysisPage: React.FC = () => {
         </select>
       </div>
 
+      {/* Selector de producto (opcional) */}
+      {selectedBrandData && (
+        <div style={{ marginBottom: '30px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              cursor: 'pointer',
+              fontSize: '16px',
+              color: '#333'
+            }}>
+              <input
+                type="checkbox"
+                checked={filterByProduct}
+                onChange={(e) => setFilterByProduct(e.target.checked)}
+                style={{ transform: 'scale(1.2)' }}
+              />
+              Filtrar por producto específico
+            </label>
+          </div>
+
+          {filterByProduct && (
+            <>
+              <h3 style={{ margin: '0 0 16px 0', color: '#333' }}>Seleccionar Producto:</h3>
+              
+              <select
+                value={selectedProduct?.id || ''}
+                onChange={(e) => {
+                  const productId = e.target.value;
+                  const product = selectedBrandData.products.find(p => p.id === productId);
+                  setSelectedProduct(product || null);
+                }}
+                style={{
+                  padding: '12px',
+                  fontSize: '16px',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '8px',
+                  outline: 'none',
+                  backgroundColor: 'white',
+                  minWidth: '400px'
+                }}
+              >
+                <option value="">Seleccionar un producto...</option>
+                {selectedBrandData.products.map(product => (
+                  <option key={product.id} value={product.id}>
+                    {product.title.length > 60 
+                      ? `${product.title.substring(0, 60)}...` 
+                      : product.title
+                    } - ${product.price.toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
+      )}
+
       {selectedBrandData && (
         <>
           {/* Estadísticas de la marca */}
@@ -253,7 +390,10 @@ const BrandAnalysisPage: React.FC = () => {
             marginBottom: '30px'
           }}>
             <h2 style={{ margin: '0 0 20px 0', color: '#333' }}>
-              {selectedBrandData.brand}
+              {filterByProduct && selectedProduct 
+                ? `${selectedBrandData.brand} - ${selectedProduct.title}`
+                : selectedBrandData.brand
+              }
             </h2>
             
             <div style={{
@@ -262,51 +402,61 @@ const BrandAnalysisPage: React.FC = () => {
               gap: '20px',
               marginBottom: '20px'
             }}>
-              <div style={{ textAlign: 'center' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: '#666' }}>Total Reviews</h4>
-                <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
-                  {selectedBrandData.totalReviews.toLocaleString()}
-                </p>
-              </div>
-              
-              <div style={{ textAlign: 'center' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: '#666' }}>Rating Promedio</h4>
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                  {renderStars(Math.round(selectedBrandData.averageRating))}
-                  <span style={{
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    color: getRatingColor(selectedBrandData.averageRating)
-                  }}>
-                    {selectedBrandData.averageRating.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              
-              <div style={{ textAlign: 'center' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: '#666' }}>Productos</h4>
-                <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
-                  {selectedBrandData.totalProducts}
-                </p>
-              </div>
-              
-              <div style={{ textAlign: 'center' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: '#666' }}>Precio Promedio</h4>
-                <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
-                  ${selectedBrandData.averagePrice.toLocaleString()}
-                </p>
-              </div>
+              {(() => {
+                const stats = getCurrentStats();
+                return (
+                  <>
+                    <div style={{ textAlign: 'center' }}>
+                      <h4 style={{ margin: '0 0 8px 0', color: '#666' }}>Total Reviews</h4>
+                      <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
+                        {stats.totalReviews.toLocaleString()}
+                      </p>
+                    </div>
+                    
+                    <div style={{ textAlign: 'center' }}>
+                      <h4 style={{ margin: '0 0 8px 0', color: '#666' }}>Rating Promedio</h4>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                        {renderStars(Math.round(stats.averageRating))}
+                        <span style={{
+                          fontSize: '24px',
+                          fontWeight: 'bold',
+                          color: getRatingColor(stats.averageRating)
+                        }}>
+                          {stats.averageRating.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div style={{ textAlign: 'center' }}>
+                      <h4 style={{ margin: '0 0 8px 0', color: '#666' }}>Productos</h4>
+                      <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
+                        {stats.totalProducts}
+                      </p>
+                    </div>
+                    
+                    <div style={{ textAlign: 'center' }}>
+                      <h4 style={{ margin: '0 0 8px 0', color: '#666' }}>Precio Promedio</h4>
+                      <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
+                        ${stats.averagePrice.toLocaleString()}
+                      </p>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             {/* Distribución de ratings */}
             <div style={{ marginBottom: '20px' }}>
               <h4 style={{ margin: '0 0 12px 0', color: '#333' }}>Distribución de Ratings</h4>
               <div style={{ display: 'grid', gap: '8px' }}>
-                {Object.entries(selectedBrandData.ratingDistribution).map(([rating, count]) => {
-                  const ratingNum = parseInt(rating.split('_')[0]);
-                  const percentage = selectedBrandData.totalReviews > 0 
-                    ? (count / selectedBrandData.totalReviews) * 100 
-                    : 0;
+                {(() => {
+                  const stats = getCurrentStats();
+                  const ratingDistribution = stats.reviewStats?.rating_distribution || {};
+                  return Object.entries(ratingDistribution).map(([rating, count]) => {
+                    const ratingNum = parseInt(rating.split('_')[0]);
+                    const percentage = stats.totalReviews > 0 
+                      ? (count / stats.totalReviews) * 100 
+                      : 0;
                   
                   return (
                     <div key={rating} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -332,7 +482,8 @@ const BrandAnalysisPage: React.FC = () => {
                       </span>
                     </div>
                   );
-                })}
+                  });
+                })()}
               </div>
             </div>
 
@@ -340,10 +491,13 @@ const BrandAnalysisPage: React.FC = () => {
             <div>
               <h4 style={{ margin: '0 0 12px 0', color: '#333' }}>Análisis de Sentimiento</h4>
               <div style={{ display: 'grid', gap: '12px' }}>
-                {Object.entries(selectedBrandData.sentimentDistribution).map(([sentiment, count]) => {
-                  const percentage = selectedBrandData.totalReviews > 0 
-                    ? (count / selectedBrandData.totalReviews) * 100 
-                    : 0;
+                {(() => {
+                  const stats = getCurrentStats();
+                  const sentimentDistribution = stats.reviewStats?.sentiment_distribution || {};
+                  return Object.entries(sentimentDistribution).map(([sentiment, count]) => {
+                    const percentage = stats.totalReviews > 0 
+                      ? (count / stats.totalReviews) * 100 
+                      : 0;
                   
                   return (
                     <div key={sentiment} style={{
@@ -382,22 +536,24 @@ const BrandAnalysisPage: React.FC = () => {
                       </span>
                     </div>
                   );
-                })}
+                  });
+                })()}
               </div>
             </div>
           </div>
 
-          {/* Lista de productos de la marca */}
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '24px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            marginBottom: '30px'
-          }}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>
-              Productos de {selectedBrandData.brand}
-            </h3>
+          {/* Lista de productos de la marca - solo si no está filtrando por producto */}
+          {!filterByProduct && (
+            <div style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              marginBottom: '30px'
+            }}>
+              <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>
+                Productos de {selectedBrandData.brand}
+              </h3>
             
             <div style={{
               display: 'grid',
@@ -444,10 +600,11 @@ const BrandAnalysisPage: React.FC = () => {
                 </div>
               ))}
             </div>
-          </div>
+            </div>
+          )}
 
           {/* Reviews del producto seleccionado */}
-          {selectedProduct && (
+          {selectedProduct && productReviews.length > 0 && (
             <div style={{
               background: 'white',
               borderRadius: '12px',
@@ -510,6 +667,32 @@ const BrandAnalysisPage: React.FC = () => {
                 <p style={{ textAlign: 'center', color: '#666' }}>
                   No hay reviews disponibles para este producto
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* Gráficos de evolución temporal */}
+          {selectedBrandData && (
+            <div>
+              {timelineLoading ? (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  padding: '24px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  marginBottom: '30px',
+                  textAlign: 'center'
+                }}>
+                  <p style={{ color: '#666' }}>Cargando datos temporales...</p>
+                </div>
+              ) : (
+                <TimelineCharts 
+                  data={timelineData}
+                  title={filterByProduct && selectedProduct 
+                    ? `${selectedBrandData.brand} - ${selectedProduct.title}`
+                    : selectedBrandData.brand
+                  }
+                />
               )}
             </div>
           )}

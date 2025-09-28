@@ -46,7 +46,7 @@ async def search(q: str = Query(..., min_length=1), site_id: str = Query("MLA"),
 
 @app.get("/api/products")
 async def get_products(
-    limit: int = Query(20, ge=1, le=100), 
+    limit: Optional[int] = Query(None, ge=1), 
     offset: int = Query(0, ge=0),
     marca: Optional[str] = Query(None)
 ):
@@ -142,7 +142,7 @@ async def get_reviews(
 @app.get("/api/products/{product_id}/reviews")
 async def get_product_reviews(
     product_id: str,
-    limit: int = Query(20, ge=1, le=100),
+    limit: Optional[int] = Query(None, ge=1),
     offset: int = Query(0, ge=0),
     order_by: str = Query("date_created", regex="^(date_created|rate|sentiment_score)$")
 ):
@@ -198,6 +198,25 @@ async def get_reviews_stats():
             service = DataService(session)
             stats = service.get_reviews_stats()
             return stats
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/reviews/timeline")
+async def get_reviews_timeline(
+    product_id: Optional[str] = Query(None),
+    days: int = Query(30, ge=1, le=365)
+):
+    """Obtiene datos temporales de reviews para gráficos de evolución"""
+    try:
+        with get_session() as session:
+            service = DataService(session)
+            timeline = service.get_reviews_timeline(product_id, days)
+            return {
+                "timeline": timeline,
+                "days": days,
+                "product_id": product_id
+            }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 

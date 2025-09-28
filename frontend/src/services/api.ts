@@ -196,6 +196,30 @@ export const apiService = {
     return response.data;
   },
 
+  // Obtener datos temporales de reviews
+  async getReviewsTimeline(options: {
+    product_id?: string;
+    days?: number;
+  } = {}): Promise<{
+    timeline: Array<{
+      date: string;
+      total_reviews: number;
+      avg_rating: number;
+      sentiment_positive: number;
+      sentiment_negative: number;
+      sentiment_neutral: number;
+    }>;
+    days: number;
+    product_id?: string;
+  }> {
+    const params = new URLSearchParams();
+    if (options.product_id) params.append('product_id', options.product_id);
+    if (options.days) params.append('days', options.days.toString());
+
+    const response = await api.get(`/api/reviews/timeline?${params}`);
+    return response.data;
+  },
+
   // ===== ENDPOINTS DE COMPATIBILIDAD (MANTENER) =====
 
   // Obtener producto por ID (endpoint de compatibilidad)
@@ -226,7 +250,7 @@ export const apiService = {
   async getProductWithReviews(productId: string): Promise<ProductWithReviews> {
     const [product, reviewsData] = await Promise.all([
       this.getProduct(productId),
-      this.getProductReviews(productId, { limit: 100 })
+      this.getProductReviews(productId) // Sin límite para traer todas las reviews
     ]);
 
     return {
