@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams, Link, useLocation } from 'react-router-dom';
-import ProductsPage from './pages/ProductsPage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import ReviewsPage from './pages/ReviewsPage';
+import BrandAnalysisPage from './pages/BrandAnalysisPage';
 import { apiService } from './services/api';
 import './App.css';
 
@@ -131,7 +131,7 @@ const App: React.FC = () => {
             display: 'flex',
             gap: '32px'
           }}>
-            <NavigationLink to="/" label="Productos" />
+            <NavigationLink to="/" label="Marcas" />
             <NavigationLink to="/reviews" label="Reviews" />
           </div>
         </nav>
@@ -142,7 +142,7 @@ const App: React.FC = () => {
           backgroundColor: '#f5f5f5'
         }}>
           <Routes>
-            <Route path="/" element={<ProductsPage />} />
+            <Route path="/" element={<BrandAnalysisPage />} />
             <Route path="/reviews" element={<ReviewsPage />} />
             <Route path="/product/:productId" element={<ProductDetailWrapper />} />
           </Routes>
