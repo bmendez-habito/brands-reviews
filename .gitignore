@@ -57,3 +57,4 @@ docker-compose.override.yml
 data/raw/
 data/processed/
 data/exports/
+urls.txt

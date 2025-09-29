@@ -1,22 +1,31 @@
 ## Checkpoint - ML Reviews Analyzer
 
-### Estado actual
-- API en FastAPI (`src/web/app.py`) con endpoints:
-  - `GET /health`
-  - `GET /api/search?q=...` (modo offline/online)
-  - `GET /api/items/{id}` (sirve desde DB con fallback a ML y cachea)
-  - `GET /api/items/{id}/reviews?limit=&offset=&refresh=` (lee DB y opcional refresca desde ML)
-- Cliente MercadoLibre (`src/api/ml_client.py`) con:
-  - Rate limiting simple, retries 429/5xx, `Authorization: Bearer` si hay `ML_ACCESS_TOKEN`
-  - Modo offline cuando no hay token o `ML_OFFLINE_MODE=True`
-- Modelos y DB:
-  - `Product` y `Review` en `src/models/*` (actualizados con `product_id`, `marca`, `modelo`, `caracteristicas`)
-  - `init_db()` en `src/models/database.py`
-- Scraper principal (`src/services/scrape_final.py`) con API noindex
-- Job batch manual (`src/services/batch_fetch.py`) para ingerir N reviews por item.
-- Extractor de productos (`src/services/extract_product_simple.py`) con Playwright para información detallada de productos.
-- Analizador de sentimiento (`src/services/sentiment_analyzer.py`) para completar análisis de sentimiento en reviews.
-- Docker Compose solo para base de datos Postgres.
+### Estado actual (Actualizado)
+- **API REST moderna** (`src/web/app.py`) con endpoints completos:
+  - Endpoints modernos: `/api/products`, `/api/reviews`, `/api/reviews/timeline`
+  - Endpoints legacy: `/api/items/{id}`, `/api/search`, `/health`
+  - CORS configurado para frontend React
+  - Filtros avanzados por marca, fecha, rating, sentimiento
+- **Frontend React** con TypeScript:
+  - Análisis por marca con gráficos interactivos
+  - Comparación lado a lado de marcas
+  - Gráficos temporales (Recharts)
+  - Análisis de sentimiento visual
+  - Distribución de ratings con porcentajes correctos
+- **Servicios de procesamiento**:
+  - `scrape_final.py`: Scraper principal con API noindex (mejorado)
+  - `extract_product_simple.py`: Extractor de productos con Playwright
+  - `batch_process_products.py`: Procesamiento batch eficiente
+  - `sentiment_analyzer.py`: Análisis de sentimiento en español mejorado
+- **Base de datos PostgreSQL** con modelos extendidos:
+  - Productos: marca, modelo, características (JSONB), ml_additional_info
+  - Reviews: fecha original, sentimiento, raw_json, date_text
+  - Relaciones optimizadas con índices
+- **Análisis de sentimiento**:
+  - Enfoque híbrido: TextBlob + diccionario español
+  - Procesamiento batch con commits eficientes
+  - Corrección de fechas (2025 → 2024)
+  - Cálculos de porcentajes corregidos
 
 ### Variables de entorno (.env)
 - `ML_OFFLINE_MODE=True|False` (por defecto False para scraper)
@@ -75,9 +84,41 @@ python -m src.services.sentiment_analyzer --from-date 2024-01-01   # Desde fecha
 python -m src.services.sentiment_analyzer --dry-run                 # Ver qué se procesaría
 ```
 
+### Comandos actualizados para uso diario
+
+#### Frontend
+```bash
+cd frontend
+npm run dev
+# http://localhost:5173 - Análisis por marca
+# http://localhost:5173/comparison - Comparación de marcas
+```
+
+#### Backend
+```bash
+# API REST
+python main.py
+# http://localhost:8000/api/products - Lista productos
+# http://localhost:8000/api/reviews/timeline - Datos temporales
+```
+
+#### Procesamiento de datos
+```bash
+# Scraping completo (recomendado)
+python -m src.services.scrape_final --urls-file urls.txt --count 1000
+
+# Análisis de sentimiento
+python -m src.services.sentiment_analyzer
+
+# Procesamiento batch
+python -m src.services.batch_process_products --action reviews --min-reviews 1000
+```
+
 ### Próximos pasos sugeridos
-- Scheduler (cron/K8s) para ejecutar el batch periódico.
-- Agregar autenticación y panel para administrar items a trackear.
-- Enriquecimiento (sentimiento/keywords) y endpoints de analítica.
+- ✅ **Completado**: Sistema completo de análisis visual
+- ✅ **Completado**: Análisis de sentimiento en español
+- ✅ **Completado**: Gráficos temporales y comparativos
+- 🔄 **En progreso**: Optimización de performance
+- 📋 **Próximos**: Scheduler automático, exportación de datos, dashboard ejecutivo
 
 

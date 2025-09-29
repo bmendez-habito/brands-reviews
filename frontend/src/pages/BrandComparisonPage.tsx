@@ -162,7 +162,14 @@ const BrandComparisonPage: React.FC = () => {
       });
 
       const brandsData = await Promise.all(brandDataPromises);
-      setBrands(brandsData);
+      // Filtrar solo marcas que tienen reviews
+      const brandsWithReviews = brandsData.filter(brand => brand.totalReviews > 0);
+      setBrands(brandsWithReviews);
+      
+      // Resetear selecciones si las marcas seleccionadas no tienen reviews
+      setSelectedBrandLeft(current => brandsWithReviews.find(b => b.brand === current) ? current : '');
+      setSelectedBrandRight(current => brandsWithReviews.find(b => b.brand === current) ? current : '');
+      
       setLoading({ isLoading: false, error: null });
 
     } catch (error) {
@@ -283,6 +290,8 @@ const BrandComparisonPage: React.FC = () => {
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#555' }}>
               Seleccionar Marca:
             </label>
+            
+            
             <select
               value={selectedBrand}
               onChange={(e) => handleBrandSelect(e.target.value, side)}
@@ -292,7 +301,9 @@ const BrandComparisonPage: React.FC = () => {
                 border: '1px solid #ddd',
                 borderRadius: '8px',
                 fontSize: '16px',
-                backgroundColor: 'white'
+                backgroundColor: 'white',
+                color: '#333',
+                fontWeight: 'normal'
               }}
             >
               <option value="">-- Seleccionar marca --</option>

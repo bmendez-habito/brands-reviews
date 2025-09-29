@@ -160,13 +160,21 @@ def extract_product_info(url):
             # Extraer título - método más agresivo
             print("📝 Buscando título...")
             
-            # Intentar diferentes métodos para obtener el título
+            # Intentar diferentes métodos para obtener el título (más rápido)
             title_methods = [
-                # Método 1: Selectores específicos
-                lambda: page.locator('h1[data-testid="product-title"]').first.text_content(),
-                lambda: page.locator('h1.ui-pdp-title').first.text_content(),
-                lambda: page.locator('.ui-pdp-title').first.text_content(),
-                lambda: page.locator('[data-testid="product-title"]').first.text_content(),
+                # Método 1: Buscar en meta tags (más rápido)
+                lambda: page.evaluate('''
+                    () => {
+                        const meta = document.querySelector('meta[property="og:title"]');
+                        return meta ? meta.getAttribute('content') : null;
+                    }
+                '''),
+                
+                # Método 2: Selectores específicos con timeout corto
+                lambda: page.locator('h1[data-testid="product-title"]').first.wait_for(timeout=2000).text_content(),
+                lambda: page.locator('h1.ui-pdp-title').first.wait_for(timeout=2000).text_content(),
+                lambda: page.locator('.ui-pdp-title').first.wait_for(timeout=2000).text_content(),
+                lambda: page.locator('[data-testid="product-title"]').first.wait_for(timeout=2000).text_content(),
                 
                 # Método 2: Buscar en todo el HTML
                 lambda: page.evaluate('''

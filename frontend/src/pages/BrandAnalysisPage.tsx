@@ -68,9 +68,9 @@ const BrandAnalysisPage: React.FC = () => {
       const productsResponse = await apiService.getProducts();
       const allProducts = productsResponse.products;
       
-      // Agrupar por marca (filtrar marcas inválidas)
+      // Agrupar por marca (filtrar marcas inválidas y sin reviews)
       const brandMap = new Map<string, Product[]>();
-      const invalidBrands = ['Aire', 'Split', 'Inverter', 'Color', 'Blanco', 'Negro', 'Portátil', 'Frío', 'Calor'];
+      const invalidBrands = ['Aire', 'Split', 'Inverter', 'Color', 'Blanco', 'Negro', 'Calor'];
       
       allProducts.forEach(product => {
         if (product.marca && !invalidBrands.includes(product.marca) && product.marca.length > 2) {
@@ -136,7 +136,10 @@ const BrandAnalysisPage: React.FC = () => {
           brandData.averageRating = totalRating / reviewCount;
         }
 
-        brandsData.push(brandData);
+        // Solo agregar marcas que tienen reviews
+        if (brandData.totalReviews > 0) {
+          brandsData.push(brandData);
+        }
       }
 
       // Ordenar por número de reviews (más populares primero)
@@ -144,8 +147,13 @@ const BrandAnalysisPage: React.FC = () => {
       
       setBrands(brandsData);
       
+      // Resetear selección si la marca actual no tiene reviews
+      if (selectedBrand && !brandsData.find(b => b.brand === selectedBrand)) {
+        setSelectedBrand('');
+      }
+      
       // Seleccionar la primera marca por defecto
-      if (brandsData.length > 0) {
+      if (brandsData.length > 0 && !selectedBrand) {
         setSelectedBrand(brandsData[0].brand);
       }
       
@@ -297,6 +305,7 @@ const BrandAnalysisPage: React.FC = () => {
       <div style={{ marginBottom: '30px' }}>
         <h3 style={{ margin: '0 0 16px 0', color: '#333' }}>Seleccionar Marca:</h3>
         
+        
         <select
           value={selectedBrand}
           onChange={(e) => {
@@ -311,7 +320,10 @@ const BrandAnalysisPage: React.FC = () => {
             borderRadius: '8px',
             outline: 'none',
             backgroundColor: 'white',
-            minWidth: '250px'
+            color: '#333',
+            fontWeight: 'normal',
+            minWidth: '250px',
+            cursor: 'pointer'
           }}
           disabled={brands.length === 0}
         >
