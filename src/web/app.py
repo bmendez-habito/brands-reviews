@@ -28,6 +28,29 @@ app.add_middleware(
 async def health():
     return {"status": "ok", "debug": settings.DEBUG}
 
+@app.post("/migrate")
+async def migrate_database():
+    """Ejecutar migraciones de base de datos"""
+    try:
+        from src.models.database import Base
+        from sqlalchemy import create_engine
+        import os
+        
+        database_url = os.getenv('DATABASE_URL')
+        if not database_url:
+            raise Exception("DATABASE_URL no configurada")
+        
+        engine = create_engine(database_url)
+        Base.metadata.create_all(bind=engine)
+        
+        return {
+            "status": "success", 
+            "message": "Tablas creadas exitosamente",
+            "tables": list(Base.metadata.tables.keys())
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 
 # ===== ENDPOINTS DE BÚSQUEDA EXTERNA =====
 
